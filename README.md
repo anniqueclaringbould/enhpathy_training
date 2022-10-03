@@ -7,12 +7,13 @@
 	* [gene locations](eQTLmapping/input/gene_locations.txt)
 	* [SNP locations](eQTLmapping/input/snp_locations.txt)
 	
-### eGRN creation 
+### eGRN creation and evaluation
 * [GRaNIE workshop](GRaNIE/GRaNIE_ENHPATHY.nb.html)
 	* [gene expression](GRaNIE/input/countsRNA.tsv)
 	* [enhancers](GRaNIE/input/countsATAC.tsv)
 	* [sample metadata](GRaNIE/input/sampleMetadata.tsv)
 	* [TFBS folder](GRaNIE/input/PWMScan_HOCOMOCOv11_selected)
+* [GRaNPA workshop](GRaNPA/GRaNPA_ENHPATHY.nb.html)	
   
 ### GRN validation
 * [GRN validation course](eQTL_GRN_overlap/eQTL_enrichment_02102022.html)
