@@ -7,12 +7,13 @@
 	* [gene locations](eQTLmapping/input/gene_locations.txt)
 	* [SNP locations](eQTLmapping/input/snp_locations.txt)
 	
-### GRN 
-* [eQTL mapping course](eQTLmapping/Mapping_eQTLs_answers_02102022.html)
-	* [gene expression](eQTLmapping/input/geuvadis_normalised_gene_expression.txt.zip)
-	* [genotypes](eQTLmapping/input/genotypes.txt)
-	* [gene locations](eQTLmapping/input/gene_locations.txt)
-	* [SNP locations](eQTLmapping/input/snp_locations.txt)
+### eGRN generation and evaluation
+* [GRaNIE workshop](GRaNIE/GRaNIE_ENHPATHY.nb.html)
+	* [gene expression](GRaNIE/input/countsRNA.tsv)
+	* [enhancers](GRaNIE/input/countsATAC.tsv)
+	* [sample metadata](GRaNIE/input/sampleMetadata.tsv)
+	* [TFBS folder](GRaNIE/input/PWMScan_HOCOMOCOv11_selected)
+* [GRaNPA workshop](GRaNPA/GRaNPA_ENHPATHY.nb.html)	
   
 ### GRN validation
 * [GRN validation course](eQTL_GRN_overlap/eQTL_enrichment_02102022.html)
