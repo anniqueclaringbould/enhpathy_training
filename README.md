@@ -7,7 +7,7 @@
 	* [gene locations](eQTLmapping/input/gene_locations.txt)
 	* [SNP locations](eQTLmapping/input/snp_locations.txt)
 	
-### eGRN creation and evaluation
+### eGRN generation and evaluation
 * [GRaNIE workshop](GRaNIE/GRaNIE_ENHPATHY.nb.html)
 	* [gene expression](GRaNIE/input/countsRNA.tsv)
 	* [enhancers](GRaNIE/input/countsATAC.tsv)
