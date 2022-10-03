@@ -1,0 +1,419 @@
+---
+title: "GRN eQTL enrichment answers"
+author: "Annique Claringbould"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+***
+<br><br><br>
+```{r setup, include=F}
+knitr::opts_chunk$set(echo=T)
+```
+
+<br>In this tutorial, you will use pre-calculated eQTLs and overlap them with the GRN you just created, so you can test whether there is an enrichment for macrophage-specific eQTLs in this macrophage GRN.<br><br>
+
+## Set up & read data
+Let's start by cleaning our R environment and installing the necessary packages: **tidyverse**, **GenomicRanges**, **plyranges** and **GRaNIE**.  
+
+```{r library, message=F, eval=T, echo=T}
+rm(list = ls())
+#install.packages('tidyverse')
+#BiocManager::install("GenomicRanges")
+#BiocManager::install("plyranges")
+#BiocManager::install("GRaNIE")
+
+library(tidyverse)
+library(GenomicRanges)
+library(plyranges)
+library(GRaNIE)
+
+#ensure that you use the right commands
+select <- dplyr::select
+mutate <- dplyr::mutate
+filter <- dplyr::filter
+```
+<br><br>We start by setting the base directory, which should be the directory where you store the files from this tutorial: the  eQTLs, the GRN and a file with information on gene positions.
+
+```{r, eval=T, echo=T}
+base.dir = "/Users/claringb/Documents/Teaching/Enhpathy/GRN_eQTL_enrichment/input/"
+```
+<br><br>
+
+### Input data
+The required input for this workshop is an eQTL file in eQTL Catalogue format and a GRN tsv file. The eQTLs in this tutorials are a combination of all monocyte and macrophage eQTLs present on [eQTL catalog](https://www.ebi.ac.uk/eqtl/), if you are interested you can download eQTLs from different tissues or cell types and repeat this analysis to see how cell-type-specific the results are. We will also use a file with information on gene positions from [biomart](http://www.ensembl.org/info/data/biomart/index.html), a resource with the most up-to-date information about genes and genetic variants.
+
+
+```{r, eval=T, echo=T}
+#GRN file name
+grnfile <- "GRN_filtered.tsv"
+grnRDS <- "GRN.rds"
+
+#eQTL filename
+eqtlfile <- "All_macrophage_eQTLs.permuted.tsv.gz"
+
+#Biomart filename
+gene_info_file <- "ENSG_genes_biomart_GRCh38_20220519.txt"
+
+#Read eQTL file
+eqtl <- read.table(paste0(base.dir, eqtlfile), header = T, sep = "\t")
+
+#Read GRN file
+grn <- read.table(paste0(base.dir, grnfile), header = T, sep = "\t")
+
+#Read GRN object file to get genes that were used to create this GRN
+grn_genes <- readRDS(paste0(base.dir, grnRDS))
+
+#Read genes and their positions from Ensembl
+genes <- read.table(paste0(base.dir, gene_info_file), header = T, sep = "\t")
+```
+<br>
+
+<br><br>**Q1. How many eQTLs did you load? How many unique SNPs and genes?**
+
+```{r answer_q1_code, eval=F, echo=T}
+dim(eqtl)[1]
+length(unique(eqtl$variant))
+length(unique(eqtl$molecular_trait_object_id))
+```
+
+```{r answer_q1, eval=T, echo=F}
+cat('Answer to Q1:\n There are ', dim(eqtl)[1], ' eQTLs,\n', length(unique(eqtl$variant)), ' SNPs,\n', length(unique(eqtl$molecular_trait_object_id)), ' genes')
+```
+<br><br>
+
+## Filter GRN
+Set an FDR threshold to include only peak-gene links below an FDR < 0.05.
+```{r, eval=T, echo=T}
+#Set threshold for significant GRN links
+GRN_FDR <- 0.05
+
+#Filter based on FDR and include only positive links
+grn <- grn %>%
+  filter(peak_gene.r > 0) %>%
+  filter(peak_gene.p_adj < GRN_FDR)
+```
+<br>
+
+<br><br>**Q2. How many GRN connections did you keep? How many unique TFs, peaks, and genes? Use functions `dim()`, `length()`, and `unique()`**
+
+```{r answer_q2_code, eval=F, echo=T}
+dim(grn)[1]
+length(unique(grn$TF.name))
+length(unique(grn$peak.ID))
+length(unique(grn$gene.ENSEMBL))
+```
+
+```{r answer_q2, eval=T, echo=F}
+cat('Answer to Q2:\n There are ', dim(grn)[1], ' connections left in the GRN, made up of ', length(unique(grn$TF.name)), ' TFs, ', length(unique(grn$peak.ID)), ' enhancers, and ', length(unique(grn$gene.ENSEMBL)), ' genes.')
+```
+<br><br>
+
+## Filter eQTLs
+Set an FDR threshold of 0.3 to include only significant eQTLs for this analysis. The eQTL files with permutations (*permuted.tsv.gz) from eQTL Catalogue have two columns for p-values: 
+
+* `p_perm` (actual permutation p-value which cannot be smaller than 1/1000)
+* `p_beta` (estimated permutation p-value from a beta approximation; use this one) 
+
+The permutations account for the number of variants tested per gene (~6000-10000 variants). FDR accounts for the number of genes tested (~13000 per dataset), so we calculate an FDR on the `p_beta` column and use that as a threshold to include eQTLs.
+
+```{r, eval=T, echo=T}
+#set threshold for significant eQTLs
+eQTL_FDR <- 0.3
+```
+<br><br>
+
+Next, we will make the eQTLs into a `GenomicRanges` object, this is a useful data structure if you are working with genetic data, as it allows easy overlaps and intersections between two sets of genomic coordinates. We will also filter the eQTLs for the FDR threshold set above.
+
+```{r, eval=T, echo=T}
+#make a genomic ranges list of significant eQTLs
+gr.eqtl <- eqtl %>%
+  select(molecular_trait_object_id, variant, chromosome, position, p_beta) %>%
+  mutate(fdr = p.adjust(p_beta, method = "fdr")) %>%
+  filter(fdr < eQTL_FDR) %>%
+  dplyr::rename(eqtl.gene = molecular_trait_object_id) %>%
+  makeGRangesFromDataFrame(., keep.extra.columns=T, seqnames.field = 'chromosome', start.field = 'position', end.field = 'position')
+```
+
+<br><br>**Q3. Inspect the new `gr.eqtl` object. How many eQTLs are left? How many unique SNPs and genes? Use functions `length()` and `unique()` on the `gr.eqtl` object**
+
+```{r answer_q3_code, eval=F, echo=T}
+length(gr.eqtl)
+length(unique(gr.eqtl$eqtl.gene))
+length(unique(gr.eqtl$variant))
+```
+
+```{r answer_q3, eval=T, echo=F}
+cat('Answer to Q3:\n There are ', length(gr.eqtl), ' eQTLs left after filtering,\n', length(unique(gr.eqtl$eqtl.gene)), ' genes and\n', length(unique(gr.eqtl$variant)), ' variants')
+```
+<br><br>
+
+## Filter GRN enhancers
+Now we need to keep only the GRN enhancers that overlap with at least one significant eQTL SNP for testing of enrichment. For that purpose, we first make the GRN into a `GenomicRanges` object as well, and then overlap the eQTLs and GRN links. <br>
+
+```{r, eval=T, echo=T}
+#keep distinct enhancers in this GRN (GRanges object)
+gr.grn_enhancers <- grn %>%
+  select(peak.ID) %>%
+  tidyr::separate(peak.ID, into = c("peak.chr", "peak.start", "peak.end"), remove = F) %>%
+  mutate(peak.chr = str_replace_all(peak.chr, "chr", ""),
+         peak.start.pos = peak.start) %>%
+  distinct() %>%  
+  makeGRangesFromDataFrame(., keep.extra.columns=T, seqnames.field = 'peak.chr', start.field = 'peak.start', end.field = 'peak.end')
+
+#overlap GRN enhancers with eQTLs to keep enhancers that contain at least one significant eQTL SNP
+gr.filt_enhancers <- join_overlap_intersect(gr.eqtl, gr.grn_enhancers)
+
+#make into data frame
+filt_enhancers <- as.data.frame(gr.filt_enhancers) %>%
+  mutate(p_beta = as.character(p_beta),
+         fdr = as.numeric(fdr))
+```
+
+<br><br>**Q4. Inspect the new `gr.filt_enhancers` object. How many enhancers have at least one eQTL SNP? Use the column `peak.ID` to find your answer. Compare this number to the enhancers in Q2. What percentage of significant enhancers in the GRN can be tested for enrichment?**
+
+```{r answer_q4_code, eval=T, echo=T}
+length(unique(gr.filt_enhancers$peak.ID))
+pct <- round(length(unique(gr.filt_enhancers$peak.ID)) / length(unique(grn$peak.ID)) * 100)
+```
+
+```{r answer_q4, eval=T, echo=F}
+cat('Answer to Q4:\n There are ', length(unique(gr.filt_enhancers$peak.ID)), ' peaks that overlap at least one eQTL. That means that ', pct, '% of GRN enhancers can be tested.')
+```
+<br><br>
+
+## Validate enhancer-gene links based on the GRN
+For a GRN enhancer-gene link to be "validated" by an eQTL, the eQTL SNP should overlap with the GRN enhancer region and the eQTL target gene should be the same as the target gene linked to the enhancer in the GRN. Since eQTLs may link one SNP to multiple genes, we count a GRN link **validated** if any eQTL SNP is located in the enhancer and its target gene matches, and **not validated** if an eQTL SNP is located in the enhancer but none of its target genes overlaps with the GRN one. <br><br>
+
+To test if the validations we find here are more significant than random, we will later sample some genes with the same distance distribution as the real GRN enhancer-gene links, so we already classify the links into bins here.
+
+```{r, eval=T, echo=T}
+#select enhancers - target gene links from the GRN
+grn <- grn %>%
+  mutate(peak_gene.distance_bin = case_when(peak_gene.distance <= 10000 ~ "0-10kb",
+                                            peak_gene.distance > 10000 & peak_gene.distance <= 20000 ~ "10-20kb",
+                                            peak_gene.distance > 20000 & peak_gene.distance <= 30000 ~ "20-30kb",
+                                            peak_gene.distance > 30000 & peak_gene.distance <= 40000 ~ "30-40kb",
+                                            peak_gene.distance > 40000 & peak_gene.distance <= 50000 ~ "40-50kb",
+                                            peak_gene.distance > 50000 ~ ">50kb")) %>%
+  mutate(peak_gene.distance_bin = factor(peak_gene.distance_bin, levels = c("0-10kb", "10-20kb", "20-30kb", "30-40kb", "40-50kb"))) %>%
+  select(peak.ID, gene.ENSEMBL, peak_gene.distance, peak_gene.distance_bin) %>%
+  distinct() %>%
+  filter(peak.ID %in% filt_enhancers$peak.ID)
+
+#classify links as positive or negative
+grn_links_validated <- grn %>%
+  left_join(filt_enhancers, by = "peak.ID") %>%
+  dplyr::rename(grn.gene = gene.ENSEMBL) %>%
+  select(peak.ID, grn.gene, eqtl.gene, variant, fdr) %>%
+  group_by(peak.ID, grn.gene) %>%
+  mutate(link_validate = case_when(any(grn.gene == eqtl.gene, na.rm = T) ~ TRUE,
+                                   TRUE ~ FALSE))
+```
+
+<br><br>**Q5. How many of the GRN links are validated by eQTLs?**<br>
+Hint: use the code below to make a table of the object `grn_links_validated`. Save the resulting table as an object called `table_GRN`
+
+```{r answer_q5_code, eval=T, echo=T}
+#function to make a table of the results
+make_table <- function(df){
+  colnames(df) <- c("peak.ID", "gene", "eqtl.gene", "variant", "fdr", "link_validate")
+  table <- df %>%
+    select(peak.ID, gene, link_validate) %>%
+    distinct() %>%
+    group_by(link_validate) %>% 
+    tally() %>%
+    mutate(percentage = round(100*n/sum(n), digits = 1))
+  return(table)
+}
+```
+
+```{r answer_q5, eval=T, echo=F}
+table_GRN <- make_table(grn_links_validated)
+cat('Answer to Q5:\n')
+print(table_GRN)
+```
+<br><br>
+
+## Validate enhancer-gene links based on the randomly sampled distance-matched genes
+As a background, we will produce a set of fake enhancer-gene links. We will use the enhancers included in the GRN and overlapping an eQTL SNP, but now the target genes will be a random sample with the same peak-gene distance. This is where we will need the gene information from Biomart. <br>
+
+```{r, eval=T, echo=T}
+#Make Ensembl genes into Genomic Ranges object
+#Select only genes that were considered in making this GRN
+genes_in_grn <- grn_genes@data$RNA$counts_norm.l$`0` %>%
+  filter(isFiltered == F) %>%
+  select(ENSEMBL) %>%
+  inner_join(genes, by = c("ENSEMBL" = "ensembl_gene_id"))
+#write.table(genes_in_grn, paste0(base.dir, "genes_in_grn.txt"), sep = "\t", row.names = F, col.names = T, quote = F)
+
+gr.genes <- genes_in_grn %>% 
+  mutate(gene.start = start_position) %>%
+  makeGRangesFromDataFrame(., keep.extra.columns=T, seqnames.field = 'chromosome_name', start.field = 'start_position', end.field = 'end_position')
+
+#Expand ranges for enhancers to 50kb on either side
+#Use the gr.grn_enhancers GRanges object for this because that includes the enhancer info as ranges
+gr.grn_enhancer_windows <- resize(gr.grn_enhancers, width = width(gr.grn_enhancers)+(50000*2), fix = "start")
+
+#Intersect regions around enhancers with all genes
+gr.grn_enhancer_windows <- join_overlap_inner(gr.grn_enhancer_windows, gr.genes) #keep all genes that fall within the extended enhancer regions
+
+#Filter for enhancers that overlap with an eQTL SNP
+gr.filt_enhancer_windows <- gr.grn_enhancer_windows[which(elementMetadata(gr.grn_enhancer_windows)[,1] %in% gr.filt_enhancers$peak.ID)]
+
+#Add enhancer - gene distance bin
+gr.filt_enhancer_windows$peak_gene.distance <- abs(as.numeric(gr.filt_enhancer_windows$peak.start.pos) - gr.filt_enhancer_windows$gene.start)
+gr.filt_enhancer_windows$peak_gene.distance_bin <- cut(gr.filt_enhancer_windows$peak_gene.distance, 
+                                                       breaks = c(0, 10000, 20000, 30000, 40000, 50000, 60000),
+                                                       labels = c("0-10kb", "10-20kb", "20-30kb", "30-40kb", "40-50kb", ">50kb"))
+```
+<br><br>
+
+Now we have our GRN enhancers with **all** possible genes within 50kb around these enhancers. We want to sample from that set of genes at the same rate as the original GRN enhancer-gene link distances:
+```{r, eval=T, echo=T}
+#Calculate number of observations that need to be sampled from each bin size
+sample_freq <- grn %>%
+  group_by(peak_gene.distance_bin) %>%
+  tally(name = 'freq')
+```
+
+<br><br>**Q6. What is the distance bin with most genes?**<br>
+Hint: you can use `slice_max()` on `sample_freq`
+
+```{r answer_q6_code, eval=F, echo=T}
+sample_freq %>% slice_max(freq)
+```
+
+```{r answer_q6, eval=T, echo=F}
+cat('Answer to Q6:\nThe most frequent bin is:\n')
+sample_freq %>% slice_max(freq)
+```
+<br><br>
+
+We will repeat the sampling procedure 20 times to get a stable result. Fill in the number in the code below.
+
+```{r, eval=T, echo=T}
+#Add frequency metadata
+filt_enhancer_windows <- merge(gr.filt_enhancer_windows, sample_freq, by = "peak_gene.distance_bin")
+
+#Replicate the sampling
+rep <- 20
+```
+<br><br>
+
+Using this background set, we will use a the same approach as before to validate a link: we annotate each link as `TRUE` if any eQTL SNP is located in the enhancer and its target gene matches or `FALSE` if the eQTL SNP is located in the enhancer but none of its target genes overlaps with the sampled one. <br>
+
+```{r, eval=T, echo=T}
+#Sample background genes using the frequency rate
+#Add eQTL information
+#Classify links as positive or negative
+random_links_validated_all <- lapply(1:rep, function(rep) {
+  group_by(filt_enhancer_windows, peak_gene.distance_bin) %>%
+  sample_n(freq[1]) %>%
+  ungroup() %>%
+  inner_join(filt_enhancers, by = "peak.ID") %>%
+  dplyr::rename(random.gene = ENSEMBL) %>%
+  select(peak.ID, random.gene, eqtl.gene, variant, fdr) %>%
+  group_by(peak.ID, random.gene) %>%
+  mutate(link_validate = case_when(any(random.gene == eqtl.gene, na.rm = T) ~ TRUE,
+                                   TRUE ~ FALSE))
+})
+```
+
+
+<br><br>**Q7. Using the same function as in Q5 and the `lapply()` function, make a table with the number of validated links for each rep. Did you sample the same number of enhancer-gene connections in every iteration?**
+
+```{r, eval=T, echo=T}
+table_random <- lapply(random_links_validated_all, make_table)
+table_random[1]
+```
+
+```{r answer_q7_code, eval=T, echo=T}
+nr_links <- lapply(1:rep, function(i){
+  sum(table_random[[i]]$n) 
+}) %>% unlist() %>% table()
+```
+
+```{r answer_q7, eval=T, echo=F}
+cat('Answer to Q7:\nYes, the evaluation takes ', names(nr_links), ' links into account every time.')
+```
+<br><br>
+
+## Compare the validation to the background
+
+<br><br>**Q8. How often are there more validated links in the GRN as compared to the random gene connections? Use code below**
+
+```{r answer_q8_code, eval=T, echo=T}
+GRN_more_validations <- lapply(1:rep, function(i){
+  table_GRN$n[table_GRN$link_validate == TRUE] >
+    table_random[[i]]$n[table_random[[i]]$link_validate == TRUE]
+}) %>% 
+  unlist() %>% 
+  table()
+```
+
+```{r answer_q8, eval=T, echo=F}
+cat('Answer to Q8:\nThere are on average more validated links in the GRN:\n')
+print(GRN_more_validations)
+```
+
+<br><br>**Q9. Adjust the code from Q8 to calculate how often are there more validated links in the *random gene* connections? Why is this not the same as the opposite of Q8?**
+
+```{r answer_q9_code, eval=T, echo=T}
+GRN_less_validations <- lapply(1:rep, function(i){
+  table_GRN$n[table_GRN$link_validate == TRUE] <
+    table_random[[i]]$n[table_random[[i]]$link_validate == TRUE]
+}) %>% 
+  unlist() %>% 
+  table()
+```
+
+```{r answer_q9, eval=T, echo=F}
+cat('Answer to Q9:\nIt is not necessarily the same, because there are cases where the background and the GRN have the same number of links validated.')
+print(GRN_less_validations)
+```
+<br><br>
+
+### Calculate odds ratios and enrichment
+
+Last, we will calculate the odds ratio (enrichment) of finding the validated GRN links over finding validated random gene links. The odds are calculated as *number of validated links* / *number of non-validated links*. The odds ratio is the odds of GRN validation over the odds of random gene validation.<br><br>
+
+First calculate the odds of validation in the real data:
+```{r, eval=T, echo=T}
+odds_grn <- table_GRN[table_GRN$link_validate == T,]$n / table_GRN[table_GRN$link_validate == F,]$n
+```
+<br>
+
+And then the odds of validation in the random data (20 times), as well as the odds ratio between these two (also 20 times):
+```{r, eval=T, echo=T}
+odds_rand <- list()
+or <- list()
+
+for (i in 1:20){
+  odds_rand[[i]] <- table_random[[i]][table_random[[i]]$link_validate == T,]$n / table_random[[i]][table_random[[i]]$link_validate == F,]$n 
+  or[[i]] <- odds_grn / odds_rand[[i]]
+}
+```
+
+<br><br>**Q10. What are the maximum, minimum and average odds ratios of the enrichment? Does this mean the enrichment is more for the GRN as compared to random distance-matched genes?**<br>
+Use the following code:
+
+```{r, eval=T, echo=T}
+mean_or <- mean(unlist(or))
+min_or <- min(unlist(or))
+max_or <- max(unlist(or))
+```
+
+
+```{r answer_q10, eval=T, echo=F}
+cat('Answer to Q10:\nThe mean Odds Ratio is ', round(mean_or, digits = 3), '\nThe minimum Odds Ratio is ', round(min_or, digits = 3), '\nThe maximum Odds Ratio is ', round(max_or, digits = 3), '\n\nThat means that the GRN is enriched more often than expected.')
+```
+<br><br>
+
+#### Well done! You've made it through all workshops :)
+
+<br><br>
+
+## Session Info
+```{r}
+sessionInfo()
+```
