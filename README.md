@@ -1,7 +1,7 @@
 # Enhpathy training: Bioinformatics October 4th
 
 ### eQTL mapping
-* [eQTL mapping course](eQTLmapping/Mapping_eQTLs_answers_02102022.html)
+* [eQTL mapping course](eQTLmapping/Mapping_eQTLs_02102022.html)
 	* [gene expression](eQTLmapping/input/geuvadis_normalised_gene_expression.txt.zip)
 	* [genotypes](eQTLmapping/input/genotypes.txt)
 	* [gene locations](eQTLmapping/input/gene_locations.txt)
