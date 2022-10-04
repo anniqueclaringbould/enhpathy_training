@@ -28,8 +28,13 @@ In this workshop, we present GRaNIE (Gene Regulatory Network Inference including
 In the workshop, you will learn how to use the GRaNIE package in a real-world example, explore the package features and work with a GRaNIE object. 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-dir <- "/Users/servaas/Documents/EMBL/Workshops/ENHPATHY_2022/GRaNIE/" #replace with the directory where you have your data for the GRaNIE workshop stored.
+knitr::opts_chunk$set(echo = T,
+                      results = "hide")
+```
+
+```{r set directory, include = TRUE}
+#replace with the directory where you have your data for the GRaNIE workshop stored.
+dir <- "/Users/servaas/Documents/EMBL/Workshops/ENHPATHY_2022/GRaNIE/" 
 setwd(dir)
 ```
 
@@ -42,7 +47,7 @@ Once you have installed a package, you need to load it before you can use it: <b
 
 Lets load the required so we can start using them. We use `suppressPackageStartupMessages` here to suppress the output messages of the packages for reasons of brevity. 
 
-```{r lib, eval=TRUE}
+```{r lib}
 #Install tidyverse from CRAN:
 install.packages("tidyverse")
 
