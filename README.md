@@ -12,7 +12,7 @@
 	* [gene expression](GRaNIE/input/countsRNA.tsv)
 	* [enhancers](GRaNIE/input/countsATAC.tsv)
 	* [sample metadata](GRaNIE/input/sampleMetadata.tsv)
-	* [TFBS folder](GRaNIE/input/PWMScan_HOCOMOCOv11_selected)
+	* [TFBS folder](https://drive.google.com/file/d/1SJUIrNPP3zQZC9z4y1Vd_CEhT7PLc1wX/view?usp=sharing)
 * [GRaNPA workshop](GRaNPA/GRaNPA_ENHPATHY.nb.html)	
   
 ### GRN validation
