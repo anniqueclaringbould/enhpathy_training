@@ -6,6 +6,7 @@
 	* [genotypes](eQTLmapping/input/genotypes.txt)
 	* [gene locations](eQTLmapping/input/gene_locations.txt)
 	* [SNP locations](eQTLmapping/input/snp_locations.txt)
+* [ANSWERS](eQTLmapping/Mapping_eQTLs_answers_02102022.html)
 	
 ### eGRN generation and evaluation
 * [GRaNIE workshop](GRaNIE/GRaNIE_ENHPATHY.nb.html)
