@@ -46,7 +46,7 @@ The required input for this workshop is an eQTL file in eQTL Catalogue format an
 ```{r, eval=F, echo=T}
 #GRN file name
 grnfile <- "GRN_filtered.tsv"
-grnRDS <- "GRN.rds"
+grn_genes_file <- "genes_in_grn.txt"
 
 #eQTL filename
 eqtlfile <- "All_macrophage_eQTLs.permuted.tsv.gz"
@@ -55,13 +55,13 @@ eqtlfile <- "All_macrophage_eQTLs.permuted.tsv.gz"
 gene_info_file <- "ENSG_genes_biomart_GRCh38_20220519.txt"
 
 #Read eQTL file
-eqtl <- read.table(paste0(base.dir, eqtlfile), header = T, sep = "\t")
+eqtl <- read.table(paste0(base.dir, eqtlfile), header = T, sep = "\t", stringsAsFactors = FALSE)
 
 #Read GRN file
 grn <- read.table(paste0(base.dir, grnfile), header = T, sep = "\t")
 
 #Read GRN object file to get genes that were used to create this GRN
-grn_genes <- readRDS(paste0(base.dir, grnRDS))
+genes_in_grn <- read.table(paste0(base.dir, grn_genes_file), header = T, sep = "\t")
 
 #Read genes and their positions from Ensembl
 genes <- read.table(paste0(base.dir, gene_info_file), header = T, sep = "\t")
@@ -240,11 +240,6 @@ As a background, we will produce a set of fake enhancer-gene links. We will use 
 ```{r, eval=F, echo=T}
 #Make Ensembl genes into Genomic Ranges object
 #Select only genes that were considered in making this GRN
-genes_in_grn <- grn_genes@data$RNA$counts_norm.l$`0` %>%
-  filter(isFiltered == F) %>%
-  select(ENSEMBL) %>%
-  inner_join(genes, by = c("ENSEMBL" = "ensembl_gene_id"))
-
 gr.genes <- genes_in_grn %>% 
   mutate(gene.start = start_position) %>%
   makeGRangesFromDataFrame(., keep.extra.columns=T, seqnames.field = 'chromosome_name', start.field = 'start_position', end.field = 'end_position')
