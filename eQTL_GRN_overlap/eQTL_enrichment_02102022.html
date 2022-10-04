@@ -364,7 +364,7 @@ pre code {
 
 <h1 class="title toc-ignore">GRN eQTL enrichment</h1>
 <h4 class="author">Annique Claringbould</h4>
-<h4 class="date">03 October, 2022</h4>
+<h4 class="date">04 October, 2022</h4>
 
 </div>
 
@@ -413,7 +413,7 @@ a resource with the most up-to-date information about genes and genetic
 variants.</p>
 <pre class="r"><code>#GRN file name
 grnfile &lt;- &quot;GRN_filtered.tsv&quot;
-grnRDS &lt;- &quot;GRN.rds&quot;
+grn_genes_file &lt;- &quot;genes_in_grn.txt&quot;
 
 #eQTL filename
 eqtlfile &lt;- &quot;All_macrophage_eQTLs.permuted.tsv.gz&quot;
@@ -422,13 +422,13 @@ eqtlfile &lt;- &quot;All_macrophage_eQTLs.permuted.tsv.gz&quot;
 gene_info_file &lt;- &quot;ENSG_genes_biomart_GRCh38_20220519.txt&quot;
 
 #Read eQTL file
-eqtl &lt;- read.table(paste0(base.dir, eqtlfile), header = T, sep = &quot;\t&quot;)
+eqtl &lt;- read.table(paste0(base.dir, eqtlfile), header = T, sep = &quot;\t&quot;, stringsAsFactors = FALSE)
 
 #Read GRN file
 grn &lt;- read.table(paste0(base.dir, grnfile), header = T, sep = &quot;\t&quot;)
 
 #Read GRN object file to get genes that were used to create this GRN
-grn_genes &lt;- readRDS(paste0(base.dir, grnRDS))
+genes_in_grn &lt;- read.table(paste0(base.dir, grn_genes_file), header = T, sep = &quot;\t&quot;)
 
 #Read genes and their positions from Ensembl
 genes &lt;- read.table(paste0(base.dir, gene_info_file), header = T, sep = &quot;\t&quot;)</code></pre>
@@ -590,11 +590,6 @@ peak-gene distance. This is where we will need the gene information from
 Biomart. <br></p>
 <pre class="r"><code>#Make Ensembl genes into Genomic Ranges object
 #Select only genes that were considered in making this GRN
-genes_in_grn &lt;- grn_genes@data$RNA$counts_norm.l$`0` %&gt;%
-  filter(isFiltered == F) %&gt;%
-  select(ENSEMBL) %&gt;%
-  inner_join(genes, by = c(&quot;ENSEMBL&quot; = &quot;ensembl_gene_id&quot;))
-
 gr.genes &lt;- genes_in_grn %&gt;% 
   mutate(gene.start = start_position) %&gt;%
   makeGRangesFromDataFrame(., keep.extra.columns=T, seqnames.field = &#39;chromosome_name&#39;, start.field = &#39;start_position&#39;, end.field = &#39;end_position&#39;)

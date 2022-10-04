@@ -364,7 +364,7 @@ pre code {
 
 <h1 class="title toc-ignore">GRN eQTL enrichment answers</h1>
 <h4 class="author">Annique Claringbould</h4>
-<h4 class="date">03 October, 2022</h4>
+<h4 class="date">04 October, 2022</h4>
 
 </div>
 
@@ -413,7 +413,8 @@ a resource with the most up-to-date information about genes and genetic
 variants.</p>
 <pre class="r"><code>#GRN file name
 grnfile &lt;- &quot;GRN_filtered.tsv&quot;
-grnRDS &lt;- &quot;GRN.rds&quot;
+grn_genes_file &lt;- &quot;genes_in_grn.txt&quot;
+#grnRDS &lt;- &quot;GRN.rds&quot;
 
 #eQTL filename
 eqtlfile &lt;- &quot;All_macrophage_eQTLs.permuted.tsv.gz&quot;
@@ -422,7 +423,7 @@ eqtlfile &lt;- &quot;All_macrophage_eQTLs.permuted.tsv.gz&quot;
 gene_info_file &lt;- &quot;ENSG_genes_biomart_GRCh38_20220519.txt&quot;
 
 #Read eQTL file
-eqtl &lt;- read.table(paste0(base.dir, eqtlfile), header = T, sep = &quot;\t&quot;)
+eqtl &lt;- read.table(paste0(base.dir, eqtlfile), header = T, sep = &quot;\t&quot;, stringsAsFactors = FALSE)
 
 #Read GRN file
 grn &lt;- read.table(paste0(base.dir, grnfile), header = T, sep = &quot;\t&quot;)</code></pre>
@@ -431,7 +432,8 @@ grn &lt;- read.table(paste0(base.dir, grnfile), header = T, sep = &quot;\t&quot;
 <pre><code>## Warning in scan(file = file, what = what, sep = sep, quote = quote, dec = dec, :
 ## number of items read is not a multiple of the number of columns</code></pre>
 <pre class="r"><code>#Read GRN object file to get genes that were used to create this GRN
-grn_genes &lt;- readRDS(paste0(base.dir, grnRDS))
+#grn_genes &lt;- readRDS(paste0(base.dir, grnRDS))
+genes_in_grn &lt;- read.table(paste0(base.dir, grn_genes_file), header = T, sep = &quot;\t&quot;)
 
 #Read genes and their positions from Ensembl
 genes &lt;- read.table(paste0(base.dir, gene_info_file), header = T, sep = &quot;\t&quot;)</code></pre>
@@ -616,10 +618,11 @@ peak-gene distance. This is where we will need the gene information from
 Biomart. <br></p>
 <pre class="r"><code>#Make Ensembl genes into Genomic Ranges object
 #Select only genes that were considered in making this GRN
-genes_in_grn &lt;- grn_genes@data$RNA$counts_norm.l$`0` %&gt;%
-  filter(isFiltered == F) %&gt;%
-  select(ENSEMBL) %&gt;%
-  inner_join(genes, by = c(&quot;ENSEMBL&quot; = &quot;ensembl_gene_id&quot;))
+#genes_in_grn &lt;- grn_genes@data$RNA$counts_norm.l$`0` %&gt;%
+#  filter(isFiltered == F) %&gt;%
+#  select(ENSEMBL) %&gt;%
+#  inner_join(genes, by = c(&quot;ENSEMBL&quot; = &quot;ensembl_gene_id&quot;))
+#write.table(genes_in_grn, paste0(base.dir, &quot;genes_in_grn.txt&quot;), sep = &quot;\t&quot;, row.names = F, col.names = T, quote = F)
 
 gr.genes &lt;- genes_in_grn %&gt;% 
   mutate(gene.start = start_position) %&gt;%
@@ -697,8 +700,8 @@ table_random[1]</code></pre>
 ## # A tibble: 2 × 3
 ##   link_validate     n percentage
 ##   &lt;lgl&gt;         &lt;int&gt;      &lt;dbl&gt;
-## 1 FALSE           114       65.5
-## 2 TRUE             60       34.5</code></pre>
+## 1 FALSE           110       63.2
+## 2 TRUE             64       36.8</code></pre>
 <pre class="r"><code>nr_links &lt;- lapply(1:rep, function(i){
   sum(table_random[[i]]$n) 
 }) %&gt;% unlist() %&gt;% table()</code></pre>
@@ -764,9 +767,9 @@ following code:</p>
 min_or &lt;- min(unlist(or))
 max_or &lt;- max(unlist(or))</code></pre>
 <pre><code>## Answer to Q10:
-## The mean Odds Ratio is  1.515 
-## The minimum Odds Ratio is  1.149 
-## The maximum Odds Ratio is  1.773 
+## The mean Odds Ratio is  1.469 
+## The minimum Odds Ratio is  1.204 
+## The maximum Odds Ratio is  1.967 
 ## 
 ## That means that the GRN is enriched more often than expected.</code></pre>
 <p><br><br></p>
